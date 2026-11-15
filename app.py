@@ -149,15 +149,27 @@ elif page == "Page 3: Cross-Dataset Patterns & Correlations":
     
     st.info("**Objective 3:** To examine similarities and differences in the patterns observed across Malaysia’s economic and social datasets.")
     
-    # Summary Box
+# Summary Box
     st.subheader("📌 Summary Box")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Income Inequality Gap", "High Top-Percentile Growth")
+        st.metric(
+            label="Income Inequality Gap",
+            value="100th Percentile",
+            delta="KL & Selangor Peak (>RM 97k)"
+        )
     with col2:
-        st.metric("High-Density State Crime", "Concentrated in Urban States")
+        st.metric(
+            label="High-Density State Prison",
+            value="Selangor",
+            delta="Highest Across 2017–2024"
+        )
     with col3:
-        st.metric("Demographic Shift", "Marriage Concentrated in Young Adults")
+        st.metric(
+            label="Demographic Concentration",
+            value="Aged 25–29",
+            delta=">150k Marriages Annually"
+        )
         
     st.markdown("---")
     st.subheader("📈 Visualizations (3 Visualizations)")
