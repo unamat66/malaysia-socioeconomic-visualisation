@@ -18,6 +18,9 @@ page = st.sidebar.radio("Select Objective Page:", [
     "Page 3: Cross-Dataset Patterns & Correlations"
 ])
 
+# Susunan Kategori Umur yang Betul
+AGE_ORDER = ['<20', '20-24', '25-29', '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65+']
+
 # Fungsi Muat Naik Data & Pembersihan Data
 @st.cache_data
 def load_data():
@@ -30,13 +33,13 @@ def load_data():
         df['date'] = pd.to_datetime(df['date'], errors='coerce')
         df['year'] = df['date'].dt.year
         
-    # Pembersihan Data Pendapatan
+    # Pembersihan Data Pendapatan (Buang tanda petikan tunggal/berganda)
     income['income'] = pd.to_numeric(income['income'], errors='coerce')
-    income['state'] = income['state'].astype(str).str.strip()
+    income['state'] = income['state'].astype(str).str.strip().str.strip("'\"")
     income_mean = income[income['variable'].astype(str).str.lower() == 'mean'].dropna(subset=['income']).copy()
     
-    # Pembersihan Data Banduan
-    crime['state'] = crime['state'].astype(str).str.strip()
+    # Pembersihan Data Banduan (Buang tanda petikan tunggal/berganda)
+    crime['state'] = crime['state'].astype(str).str.strip().str.strip("'\"")
     crime['sex'] = crime['sex'].astype(str).str.strip().str.lower()
     crime['prisoners'] = pd.to_numeric(crime['prisoners'], errors='coerce')
     
@@ -63,9 +66,9 @@ if page == "Page 1: Socioeconomic & Demographic Trends Over Time":
     with col1:
         st.metric("Latest Avg Income (2024)", f"RM {inc_df[inc_df['year']==2024]['income'].mean():,.2f}")
     with col2:
-        st.metric("Latest Total Prisoners (2024)", f"{crime_df[(crime_df['year']==2024)&(crime_df['state'].str.lower()=='malaysia')&(crime_df['sex']=='both')]['prisoners'].sum():,}")
+        st.metric("Latest Total Prisoners (2024)", f"{crime_df[(crime_df['year']==2024)&(crime_df['state'].str.lower()=='malaysia')&(crime_df['sex']=='both')]['prisoners'].sum():,.0f}")
     with col3:
-        st.metric("Total Marriages Recorded (All Years)", f"{mar_df[mar_df['age'].str.lower()!='all']['abs'].sum():,}")
+        st.metric("Total Marriages Recorded (All Years)", f"{mar_df[mar_df['age'].str.lower()!='all']['abs'].sum():,.0f}")
         
     st.markdown("---")
     st.subheader("📈 Visualizations (3 Visualizations)")
@@ -84,7 +87,8 @@ if page == "Page 1: Socioeconomic & Demographic Trends Over Time":
         
     with c3:
         mar_year = mar_df[mar_df['age'].str.lower()!='all'].groupby('year', as_index=False)['abs'].sum()
-        fig3 = px.line(mar_year, x='year', y='abs', markers=True, title="3. Annual Total Marriage Registration Trend", labels={'year':'Year', 'abs':'Total Marriages'})
+        # Tajuk dipendekkan supaya tidak terpotong
+        fig3 = px.line(mar_year, x='year', y='abs', markers=True, title="3. Annual Marriage Registration Trend", labels={'year':'Year', 'abs':'Total Marriages'})
         st.plotly_chart(fig3, use_container_width=True)
 
     st.subheader("💡 Interpretation & Discussion")
@@ -132,6 +136,8 @@ elif page == "Page 2: Demographic & Group Comparisons":
     with c3:
         mar_age = mar_df[mar_df['age'].str.lower()!='all'].groupby(['age','sex'], as_index=False)['abs'].sum()
         fig3 = px.bar(mar_age, x='age', y='abs', color='sex', barmode='group', title="3. Marriage Counts by Age Group & Sex", labels={'age':'Age Group', 'abs':'Total Marriages', 'sex':'Gender'})
+        # Susun kategori umur bermula dari <20
+        fig3.update_xaxes(categoryorder='array', categoryarray=AGE_ORDER)
         st.plotly_chart(fig3, use_container_width=True)
 
     st.subheader("💡 Interpretation & Discussion")
@@ -149,7 +155,7 @@ elif page == "Page 3: Cross-Dataset Patterns & Correlations":
     
     st.info("**Objective 3:** To examine similarities and differences in the patterns observed across Malaysia’s economic and social datasets.")
     
-# Summary Box
+    # Summary Box
     st.subheader("📌 Summary Box")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -177,8 +183,9 @@ elif page == "Page 3: Cross-Dataset Patterns & Correlations":
     c1, c2, c3 = st.columns(3)
     
     with c1:
-        p_inc = inc_df.pivot_table(index='state', columns='percentile', values='income', aggfunc='mean')
-        fig1 = px.imshow(p_inc, aspect='auto', color_continuous_scale='Blues', title="1. Income Heatmap (State vs Percentile)", labels={'x':'Percentile', 'y':'State', 'color':'RM'})
+        # Ditukar kepada Percentile Distribution Curve (lebih jelas & menambah kepelbagaian graf)
+        p_inc_line = inc_df.groupby(['percentile', 'state'], as_index=False)['income'].mean()
+        fig1 = px.line(p_inc_line, x='percentile', y='income', color='state', title="1. Income Distribution by Percentile", labels={'percentile':'Percentile', 'income':'Mean Income (RM)', 'state':'State'})
         st.plotly_chart(fig1, use_container_width=True)
         
     with c2:
@@ -188,12 +195,15 @@ elif page == "Page 3: Cross-Dataset Patterns & Correlations":
         
     with c3:
         mar_pivot = mar_df[mar_df['age'].str.lower()!='all'].pivot_table(index='age', columns='year', values='abs', aggfunc='sum')
+        # Susun semula baris paksi Y mengikut susunan umur yang betul
+        existing_ages = [a for a in AGE_ORDER if a in mar_pivot.index]
+        mar_pivot = mar_pivot.reindex(existing_ages)
         fig3 = px.imshow(mar_pivot, aspect='auto', color_continuous_scale='Viridis', title="3. Marriage Heatmap (Age Group vs Year)", labels={'x':'Year', 'y':'Age Group', 'color':'Count'})
         st.plotly_chart(fig3, use_container_width=True)
 
     st.subheader("💡 Interpretation & Discussion")
     st.write("""
-    - **Economic Distribution:** The income heatmap highlights steep vertical gradients at upper percentiles across all states, revealing income inequality.
+    - **Economic Distribution:** The income percentile curves highlight exponential growth at the top percentiles (90th–100th), particularly in W.P. Kuala Lumpur, W.P. Putrajaya, and Selangor, revealing pronounced income inequality.
     - **Socio-Geographic Patterns:** Highly populated and economic-hub states (e.g., Selangor) display higher prisoner volumes parallel to higher average income levels.
     - **Demographic Synthesis:** Combining demographic marriage age concentration with socioeconomic distribution provides a holistic view of social transitions in Malaysia.
     """)
